@@ -125,6 +125,77 @@ Mientras corre, el log del servidor muestra cada turno con el idioma detectado:
      assistant : Our customer service hours are Monday to Friday, from 9 AM to 5 PM.
 ```
 
+## Tool calling
+
+El agente lleva cuatro herramientas que forman un "travel concierge" mínimo. No son el
+producto: están elegidas porque generan los mismos patrones que después aparecen en ecommerce o
+reservas — elegir la herramienta correcta, extraer bien los argumentos, encadenar una llamada
+con el resultado de otra, y combinar dos cadenas independientes en una sola respuesta.
+
+| Herramienta          | Fuente                | Por qué está                                        |
+| -------------------- | --------------------- | --------------------------------------------------- |
+| `resolve_location`   | Open-Meteo Geocoding  | Nombre de ciudad → coordenadas. Sin clave            |
+| `get_weather`        | Open-Meteo Forecast   | Obliga a encadenar: necesita lat/lon. Sin clave      |
+| `convert_currency`   | Frankfurter           | Simple y determinista. Sin clave                     |
+| `get_business_hours` | local, 50–150 ms      | Referencia de latencia sin red de por medio          |
+
+Se declaran sin `endpoint`, así que Deepgram las trata como *client-side*: manda un
+`FunctionCallRequest` y las ejecuta este servidor, que responde con `FunctionCallResponse`. Es
+lo que permite cronometrarlas. Cuando el modelo pide varias a la vez se ejecutan en paralelo,
+porque encadenarlas alargaría el silencio que oye quien llama.
+
+Al prompt se le añade la fecha de hoy: sin ella el modelo no puede resolver "mañana" a una
+fecha concreta para `get_weather`, y acaba inventándose una.
+
+En una llamada real el log queda así:
+
+```
+[es] user: Hola, ¿qué temperatura hace ahorita en Monterrey?
+    ⚙ resolve_location({"query":"Monterrey"}) 654ms ok
+    ⚙ get_weather({"latitude":25.68435,"longitude":-100.31721}) 672ms ok
+    ⏱ turno: 3507ms
+[ - ] assistant: Actualmente en Monterrey, la temperatura es de 33.8 grados y está parcialmente nublado.
+```
+
+### Medir y comparar modelos
+
+```bash
+pnpm bench                     # todos los modelos configurados
+pnpm bench --models a,b        # solo esos
+pnpm bench --runs 3            # repite cada caso; las latencias varían
+pnpm bench --verbose           # detalle caso por caso
+```
+
+El banco llama al LLM **directamente, no a través de la llamada de voz**. Es deliberado: medir
+el tool calling a través de TTS→STT mete el ruido del reconocimiento en cada medición, y lo que
+se compara aquí es el modelo.
+
+Seis casos con resultado esperado, incluido uno sin herramientas (*"Explícame qué es una
+tormenta eléctrica"*) que es el que de verdad separa a los modelos: llamar herramientas de más
+es tan caro como no llamarlas.
+
+```
+CALIDAD
+modelo                       selección  args    cadena   multi   sobran  faltan  paralelo
+openai-gpt-4o-mini           100%       100%    100%     100%    0       0       1/6
+
+LATENCIA (mediana, ms)
+modelo                       decisión   tool call   externa   continúa   total
+openai-gpt-4o-mini           125        126         330       126        707
+```
+
+- **selección** — llamó exactamente las herramientas que tocaba
+- **args** — los argumentos extraídos son correctos
+- **cadena** — `get_weather` recibió las coordenadas que devolvió `resolve_location`, no unas inventadas
+- **multi** — aciertos en los casos que necesitan más de una herramienta
+- **sobran / faltan** — llamadas innecesarias y ausentes, en total
+- **paralelo** — casos en que pidió varias herramientas en el mismo mensaje
+- **decisión** — primer token de la respuesta que decide la herramienta
+- **tool call** — hasta tener la llamada completa
+- **externa** — lo que tardan las herramientas (la más lenta, al ir en paralelo)
+- **continúa** — primer token de la respuesta ya con los resultados
+- **total** — turno completo
+
 ## El LLM: modelos propios en DigitalOcean
 
 El agente usa **DigitalOcean Serverless Inference**, así que lo único que hace falta es la
@@ -180,6 +251,7 @@ src/
 ├── server.js                  arranque, avisos de configuración y apagado ordenado
 ├── app.js                     instancia de Fastify y registro de plugins/rutas
 ├── config.js                  variables de entorno
+├── tools.js                   las cuatro herramientas del agente
 ├── agent-settings.js          mensaje Settings de Deepgram
 ├── deepgram-agent.js          cliente del Voice Agent (cola, keep-alive, eventos)
 └── routes/
@@ -187,6 +259,7 @@ src/
     └── twilio-stream.js       puente de audio bidireccional
 scripts/
 ├── simulate-twilio.js         cliente de pruebas que imita a Twilio
+├── bench-tools.js             banco de pruebas de tool calling
 └── list-models.js             lista y prueba los modelos de DigitalOcean
 ```
 

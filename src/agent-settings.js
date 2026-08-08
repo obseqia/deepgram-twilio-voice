@@ -1,4 +1,5 @@
 import { config } from './config.js';
+import { deepgramFunctions } from './tools.js';
 
 /**
  * El agente atiende en español e inglés, y cambia de uno a otro según le hablen.
@@ -15,6 +16,17 @@ const LANGUAGE_DIRECTIVE =
   'the caller is using, and switch as soon as they do, even mid-conversation. Never ' +
   'announce or comment on the language change, and never translate your own answer ' +
   'into the other language.';
+
+/**
+ * Sin esto el modelo no puede resolver "mañana" a una fecha concreta para
+ * get_weather, y acaba inventándose una o pidiéndosela al usuario.
+ */
+function todayDirective() {
+  const now = new Date();
+  const date = now.toLocaleDateString('en-CA'); // YYYY-MM-DD en hora local
+  const weekday = now.toLocaleDateString('en-US', { weekday: 'long' });
+  return `\n\nToday is ${weekday}, ${date}. Use it to resolve relative dates like "tomorrow".`;
+}
 
 /**
  * Construye el mensaje `Settings` que inicializa la sesión del Voice Agent.
@@ -34,7 +46,10 @@ export function buildSettings() {
       model: agent.thinkModel,
       temperature: agent.thinkTemperature,
     },
-    prompt: agent.prompt + LANGUAGE_DIRECTIVE,
+    prompt: agent.prompt + LANGUAGE_DIRECTIVE + todayDirective(),
+    // Sin `endpoint` en cada función, Deepgram las trata como client-side: nos
+    // manda un FunctionCallRequest y las ejecutamos aquí.
+    functions: deepgramFunctions(),
   };
 
   // Con un endpoint propio Deepgram solo le hace de cliente: le manda la

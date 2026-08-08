@@ -16,6 +16,9 @@ export default async function twilioStreamRoutes(fastify) {
 
     let streamSid = null;
     let inbuffer = Buffer.alloc(0);
+    // Instante en que el usuario terminó su turno, para cronometrar lo que
+    // tarda el agente en empezar a contestar.
+    let turnStartedAt = null;
     // Mensajes para Twilio generados antes de conocer el streamSid (el saludo
     // del agente puede llegar antes que el evento `start`).
     let outboundQueue = [];
@@ -49,7 +52,17 @@ export default async function twilioStreamRoutes(fastify) {
 
     agent.on('ready', () => log.info('Sesión de Deepgram configurada'));
 
-    agent.on('audio', emitMedia);
+    agent.on('audio', (mulaw) => {
+      if (turnStartedAt) {
+        log.info({ ms: Date.now() - turnStartedAt }, 'latencia del turno');
+        turnStartedAt = null;
+      }
+      emitMedia(mulaw);
+    });
+
+    agent.on('toolCall', ({ name, args, ms, ok }) => {
+      log.info({ tool: name, args, ms, ok }, 'herramienta ejecutada');
+    });
 
     agent.on('userStartedSpeaking', () => {
       // Barge-in: el usuario habla encima del agente, así que descartamos el
@@ -63,6 +76,7 @@ export default async function twilioStreamRoutes(fastify) {
       if (message.type === 'ConversationText') {
         // Con flux-general-multi, cada turno viene etiquetado con el idioma que
         // se detectó: es la forma de ver el code-switching funcionando.
+        if (message.role === 'user') turnStartedAt = Date.now();
         log.info(
           { role: message.role, languages: message.languages, content: message.content },
           'conversación',
