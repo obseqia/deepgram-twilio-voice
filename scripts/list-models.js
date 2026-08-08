@@ -48,11 +48,46 @@ for (const id of ids) {
   console.log(`  ${mark} ${id}`);
 }
 
-console.log('\nModelos a comparar (▸ = el activo, · = disponible, ✗ = no está en tu cuenta):');
-for (const id of DIGITALOCEAN_MODELS) {
-  const mark = !ids.includes(id) ? '✗' : id === thinkModel ? '▸' : '·';
-  const baseline = id === DIGITALOCEAN_MODELS[0] ? '  (baseline)' : '';
-  console.log(`  ${mark} ${id}${baseline}`);
+// El listado de /v1/models es el catálogo entero de DigitalOcean, no lo que tu
+// clave puede usar: los modelos comerciales (OpenAI, Anthropic) aparecen ahí
+// pero devuelven 403 si la cuenta no es tier 2. La única forma de saberlo es
+// pedirle un token a cada uno.
+console.log('\nModelos a comparar (acceso comprobado de verdad, no solo el catálogo):');
+const access = await Promise.all(
+  DIGITALOCEAN_MODELS.map(async (id) => {
+    if (!ids.includes(id)) return { id, state: 'no está en el catálogo' };
+    try {
+      const probe = await fetch(thinkEndpointUrl, {
+        method: 'POST',
+        headers: { ...auth, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: id,
+          messages: [{ role: 'user', content: 'hi' }],
+          max_tokens: 1,
+        }),
+        signal: AbortSignal.timeout(30000),
+      });
+      if (probe.ok) return { id, state: 'ok' };
+      const body = await probe.json().catch(() => ({}));
+      return { id, state: `HTTP ${probe.status}: ${body.error?.message ?? 'sin detalle'}` };
+    } catch (err) {
+      return { id, state: err.message };
+    }
+  }),
+);
+
+for (const { id, state } of access) {
+  const mark = state === 'ok' ? (id === thinkModel ? '▸' : '·') : '✗';
+  const baseline = id === DIGITALOCEAN_MODELS[0] ? ' (baseline)' : '';
+  console.log(`  ${mark} ${id}${baseline}${state === 'ok' ? '' : ` — ${state}`}`);
+}
+
+if (access.some(({ state }) => /403|subscription tier/.test(state))) {
+  console.log(
+    '\nLos modelos comerciales (OpenAI, Anthropic) necesitan una cuenta tier 2 en\n' +
+      'DigitalOcean: se desbloquea haciendo un prepago en el Control Panel.\n' +
+      'Los de pesos abiertos (llama, kimi, mistral, deepseek) funcionan sin eso.',
+  );
 }
 
 if (!process.argv.includes('--test')) process.exit(0);

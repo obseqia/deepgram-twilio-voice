@@ -27,13 +27,14 @@ export const BILINGUAL_VOICES = [
 
 /**
  * Modelos de DigitalOcean con los que se está probando este agente.
- * `openai-gpt-4o-mini` es el baseline contra el que se comparan los demás.
+ * El primero es el baseline contra el que se comparan los demás.
  */
 export const DIGITALOCEAN_MODELS = [
-  'openai-gpt-4o-mini',
-  'anthropic-claude-haiku-4.5',
-  'openai-gpt-5.6-luna',
-  'mimo-v2.5',
+  'openai-gpt-4o-mini', // baseline conocido y estable
+  'anthropic-claude-haiku-4.5', // mejor apuesta general: calidad + velocidad + tools
+  'openai-gpt-5-nano', // el más interesante si manda la latencia
+  'openai-gpt-5.6-luna', // equilibrio entre capacidad y velocidad
+  'openai-gpt-5-mini', // cuánta calidad se gana sacrificando latencia
 ];
 
 const useDigitalOcean =

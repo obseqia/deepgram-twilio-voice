@@ -207,18 +207,29 @@ DIGITALOCEAN_MODEL_ACCESS_KEY=tu_clave
 
 Los modelos que se están comparando, con `openai-gpt-4o-mini` como **baseline**:
 
-| Modelo                       |                                        |
-| ---------------------------- | -------------------------------------- |
-| `openai-gpt-4o-mini`         | baseline                               |
-| `anthropic-claude-haiku-4.5` |                                        |
-| `openai-gpt-5.6-luna`        |                                        |
-| `mimo-v2.5`                  |                                        |
+| Modelo                       | Por qué está en la lista                          |
+| ---------------------------- | ------------------------------------------------- |
+| `openai-gpt-4o-mini`         | baseline conocido y estable                       |
+| `anthropic-claude-haiku-4.5` | mejor apuesta general: calidad + velocidad + tools |
+| `openai-gpt-5-nano`          | el más interesante si manda la latencia            |
+| `openai-gpt-5.6-luna`        | equilibrio entre capacidad y velocidad             |
+| `openai-gpt-5-mini`          | cuánta calidad se gana sacrificando latencia       |
 
-Para ver cuáles tienes disponibles de verdad y comprobar que la clave funciona antes de gastar
-una llamada entera:
+Los modelos **comerciales (OpenAI y Anthropic) requieren una cuenta tier 2**, que se desbloquea
+haciendo un prepago en el Control Panel de DigitalOcean. Sin eso devuelven:
+
+```
+HTTP 403: this model is not available for your subscription tier
+```
+
+Los de pesos abiertos (Llama, Kimi, Mistral, DeepSeek, gpt-oss) funcionan sin ese requisito.
+
+Cuidado con una trampa: `GET /v1/models` devuelve el **catálogo entero** de DigitalOcean, no lo
+que tu clave puede usar, así que un modelo puede aparecer listado y aun así dar 403. Por eso
+`pnpm models` prueba el acceso de verdad pidiéndole un token a cada modelo de la lista:
 
 ```bash
-pnpm models            # lista los de tu cuenta y marca los cuatro de arriba
+pnpm models            # lista el catálogo y comprueba el acceso real a la shortlist
 pnpm models --test     # además pregunta algo al de THINK_MODEL y lo cronometra
 ```
 
