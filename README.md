@@ -215,14 +215,24 @@ Los modelos que se están comparando, con `openai-gpt-4o-mini` como **baseline**
 | `openai-gpt-5.6-luna`        | equilibrio entre capacidad y velocidad             |
 | `openai-gpt-5-mini`          | cuánta calidad se gana sacrificando latencia       |
 
-Los modelos **comerciales (OpenAI y Anthropic) requieren una cuenta tier 2**, que se desbloquea
-haciendo un prepago en el Control Panel de DigitalOcean. Sin eso devuelven:
+Los modelos comerciales (OpenAI y Anthropic) pueden devolver:
 
 ```
 HTTP 403: this model is not available for your subscription tier
 ```
 
-Los de pesos abiertos (Llama, Kimi, Mistral, DeepSeek, gpt-oss) funcionan sin ese requisito.
+El mensaje es el mismo para dos causas distintas, lo cual despista bastante:
+
+1. **La cuenta está por debajo de tier 3.** Se sube con un prepago en el Control Panel.
+2. **La clave se creó con un scope de modelos que no los incluye.** Las *model access keys* se
+   scopean al crearlas ("All models" o "Select models") y el scope **no se puede editar
+   después**: hay que crear otra clave.
+
+Para distinguirlas, pon un *personal access token* en `DIGITALOCEAN_MODEL_ACCESS_KEY` y repite
+la prueba — la API acepta los dos tipos de credencial. Si con el token funcionan, era el scope
+de la clave.
+
+Los modelos de pesos abiertos (Llama, Kimi, Mistral, DeepSeek, gpt-oss) funcionan en ambos casos.
 
 Cuidado con una trampa: `GET /v1/models` devuelve el **catálogo entero** de DigitalOcean, no lo
 que tu clave puede usar, así que un modelo puede aparecer listado y aun así dar 403. Por eso

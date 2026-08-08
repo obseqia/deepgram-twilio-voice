@@ -84,9 +84,17 @@ for (const { id, state } of access) {
 
 if (access.some(({ state }) => /403|subscription tier/.test(state))) {
   console.log(
-    '\nLos modelos comerciales (OpenAI, Anthropic) necesitan una cuenta tier 2 en\n' +
-      'DigitalOcean: se desbloquea haciendo un prepago en el Control Panel.\n' +
-      'Los de pesos abiertos (llama, kimi, mistral, deepseek) funcionan sin eso.',
+    '\nUn 403 "subscription tier" en modelos comerciales (OpenAI, Anthropic) tiene\n' +
+      'dos causas posibles, y el mensaje de DigitalOcean es el mismo para ambas:\n' +
+      '  1. La cuenta está por debajo de tier 3. Se sube con un prepago en el\n' +
+      '     Control Panel.\n' +
+      '  2. La model access key se creó con un scope de modelos que no los\n' +
+      '     incluye. El scope NO se puede editar: hay que crear otra clave con\n' +
+      '     "All models".\n' +
+      'Para distinguirlas, pon un personal access token en\n' +
+      'DIGITALOCEAN_MODEL_ACCESS_KEY y repite: la API acepta los dos, así que si\n' +
+      'con el token sí funcionan, el problema era el scope de la clave.\n' +
+      'Los modelos de pesos abiertos funcionan en cualquiera de los dos casos.',
   );
 }
 
