@@ -1,9 +1,9 @@
 # deepgram-twilio-voice
 
 Puente entre **Twilio Media Streams** y la **Voice Agent API de Deepgram**, en Node.js con Fastify.
-Quien llame a tu número de Twilio habla con un agente de voz **bilingüe español/inglés**: detecta
-en qué idioma le hablan y contesta en ese mismo idioma, aunque el interlocutor cambie a mitad de
-la llamada.
+Quien llame a tu número de Twilio habla con un agente de voz que atiende en **español e inglés**:
+detecta en qué idioma le hablan y contesta en ese mismo idioma, aunque cambien a mitad de la
+llamada.
 
 Es el equivalente en Node del ejemplo [deepgram-devs/sts-twilio](https://github.com/deepgram-devs/sts-twilio) (Python).
 
@@ -26,41 +26,25 @@ Cuando Deepgram avisa de un `UserStartedSpeaking`, el servidor manda un `clear` 
 descartar el audio del agente que quede en el búfer de reproducción: eso es el **barge-in**,
 lo que permite interrumpir al agente hablándole encima.
 
-## Multilenguaje
+## El bilingüismo
 
-Que un agente sea bilingüe de verdad depende de tres piezas, y las tres tienen que estar de
+Que el agente cambie de idioma bien depende de tres piezas, y las tres tienen que estar de
 acuerdo. Es fácil configurar solo una y acabar con un agente que entiende español pero
-responde en inglés, o que dice las palabras correctas con la fonética equivocada.
+responde en inglés:
 
-**1. Escuchar** — `flux-general-multi`, el modelo conversacional de Deepgram. Entiende los
-turnos de palabra, así que detecta el final de frase y las interrupciones bastante mejor que
-Nova en una llamada. Se le pasan `language_hints` para sesgarlo hacia los idiomas esperados:
-sin ellos autodetecta, pero fallar el idioma en la primera frase se nota mucho.
+1. **Escuchar** — `flux-general-multi`, el modelo conversacional de Deepgram, con
+   `language_hints: ["en", "es"]`. Entiende los turnos de palabra, así que detecta el final de
+   frase y las interrupciones bastante mejor que Nova en una llamada.
+2. **Pensar** — al prompt se le añade una instrucción explícita de responder en el idioma del
+   interlocutor. Sin ella el LLM tiende a contestar en el idioma del prompt de sistema por bien
+   que el STT haya transcrito la otra lengua.
+3. **Hablar** — aquí está la trampa. Cada voz de Aura-2 está atada a un idioma (el sufijo del
+   nombre: `aura-2-thalia-en`). Una voz inglesa dirá una frase en español, pero leyéndola como
+   si fuera inglés. **Solo cinco voces alternan los dos idiomas dentro de una misma respuesta**:
+   `aura-2-aquila-es`, `aura-2-carina-es`, `aura-2-diana-es`, `aura-2-javier-es` y
+   `aura-2-selena-es`. El servidor avisa por log si `SPEAK_MODEL` no es una de ellas.
 
-**2. Pensar** — al prompt se le añade automáticamente una directiva que le dice al LLM que
-responda siempre en el idioma del interlocutor. Sin ella el modelo tiende a contestar en el
-idioma del prompt de sistema por bien que el STT haya transcrito la otra lengua.
-
-**3. Hablar** — aquí está la trampa. Cada voz de Aura-2 está atada a un idioma (el sufijo del
-nombre: `aura-2-thalia-en`). Una voz inglesa dirá una frase en español, pero leyéndola como si
-fuera inglés. **Solo cinco voces españolas alternan los dos idiomas dentro de una misma
-respuesta**: aquila, carina, diana, javier y selena. Por eso el valor por defecto es
-`aura-2-diana-es` y no una voz inglesa.
-
-El servidor comprueba al arrancar que la voz elegida cubre los idiomas configurados, y avisa
-por log con alternativas concretas si no es así:
-
-```
-WARN: La voz aura-2-thalia-en no hace code-switching en/es: leerá el otro idioma
-      con la fonética equivocada.
-WARN: Voces que sí lo hacen: aura-2-aquila-es (masculina — expresiva, entusiasta, cercana) · …
-```
-
-Para pares de idiomas que Deepgram no cubre con una sola voz (inglés/francés, por ejemplo), el
-aviso lo dice y remite a un proveedor de TTS externo con `speak.provider.language: "multi"`.
-
-Nota: el campo `agent.language` de la API está deprecado y este proyecto no lo envía; el idioma
-se configura por proveedor (`language_hints` al escuchar, voz nativa al hablar).
+(El campo `agent.language` de la API está deprecado y este proyecto no lo envía.)
 
 ## Endpoints
 
@@ -97,20 +81,6 @@ balancer que reescribe el `Host`), pon `PUBLIC_WS_URL=wss://tu-dominio/twilio` e
 
 Ya puedes llamar al número.
 
-### Alternativa: TwiML Bin
-
-Si prefieres mantener el TwiML en Twilio en lugar de servirlo desde aquí, crea un TwiML Bin
-con este contenido y asígnalo al número:
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Connect>
-    <Stream url="wss://TU-SUBDOMINIO.ngrok.app/twilio" />
-  </Connect>
-</Response>
-```
-
 ## Probar sin hacer una llamada
 
 Hay un simulador que se hace pasar por Twilio: manda los eventos `connected` / `start`, envía
@@ -146,93 +116,70 @@ curl -X POST "https://api.deepgram.com/v1/speak?model=aura-2-javier-es&encoding=
   --output pregunta-es.raw
 ```
 
-Mientras corre, el log del servidor muestra cada turno con el idioma que detectó, que es la
-forma de ver el code-switching funcionando:
+Mientras corre, el log del servidor muestra cada turno con el idioma detectado:
 
 ```
 [es] user      : Hola, buenos días. ¿Cuál es el horario de atención al cliente?
-[ - ] assistant : Nuestro horario de atención al cliente es de lunes a viernes, de 9 a 5.
+     assistant : Nuestro horario de atención al cliente es de lunes a viernes, de 9 a 5.
 [en] user      : Hi there. What are your customer service hours?
-[ - ] assistant : Our customer service hours are Monday to Friday, from 9 AM to 5 PM.
+     assistant : Our customer service hours are Monday to Friday, from 9 AM to 5 PM.
 ```
 
-## Usar tus propios modelos (DigitalOcean y otros)
+## El LLM: modelos propios en DigitalOcean
 
-Por defecto el LLM lo pone Deepgram. Para usar tus modelos de **DigitalOcean Serverless
-Inference** basta con:
+El agente usa **DigitalOcean Serverless Inference**, así que lo único que hace falta es la
+clave (se crea en la consola, en *Gradient AI → Serverless Inference → Model access keys*):
 
 ```env
-THINK_PROVIDER=digitalocean
-THINK_MODEL=llama3.3-70b-instruct
 DIGITALOCEAN_MODEL_ACCESS_KEY=tu_clave
 ```
 
-La clave se crea en la consola de DigitalOcean, en *Gradient AI → Serverless Inference →
-Model access keys*. Para ver qué modelos tienes disponibles y comprobar que la clave funciona
-antes de gastar una llamada entera:
+Los modelos que se están comparando, con `openai-gpt-4o-mini` como **baseline**:
+
+| Modelo                       |                                        |
+| ---------------------------- | -------------------------------------- |
+| `openai-gpt-4o-mini`         | baseline                               |
+| `anthropic-claude-haiku-4.5` |                                        |
+| `openai-gpt-5.6-luna`        |                                        |
+| `mimo-v2.5`                  |                                        |
+
+Para ver cuáles tienes disponibles de verdad y comprobar que la clave funciona antes de gastar
+una llamada entera:
 
 ```bash
-npm run models          # lista los modelos del endpoint
-npm run models -- --test  # además pregunta algo al de THINK_MODEL y cronometra la respuesta
+npm run models            # lista los de tu cuenta y marca los cuatro de arriba
+npm run models -- --test  # además pregunta algo al de THINK_MODEL y lo cronometra
 ```
 
-Como el servicio es compatible con OpenAI, lo mismo vale para cualquier otro (Groq, Together,
-OpenRouter, un vLLM propio…):
+Para comparar, cambia `THINK_MODEL` y repite la misma pregunta grabada con el simulador: el log
+lleva marca de tiempo en cada turno, así que se ve tanto la calidad de la respuesta como lo que
+tarda en llegar.
 
-```env
-THINK_ENDPOINT_URL=https://tu-servicio/v1/chat/completions
-THINK_API_KEY=tu_clave
-THINK_MODEL=el-modelo
-```
+Dos cosas que conviene tener claras: **quien llama al LLM es Deepgram, no este servidor** (el
+endpoint tiene que ser accesible desde internet), y por tanto **la clave viaja hasta Deepgram**
+dentro del mensaje `Settings` — usa una dedicada y revocable.
 
-Dos cosas que conviene tener claras, porque no son evidentes:
-
-- **Quien llama al LLM es Deepgram, no este servidor.** El endpoint tiene que ser accesible
-  desde internet: un `localhost` o una IP privada no funcionan.
-- **La clave viaja hasta Deepgram** dentro del mensaje `Settings`, ya que son ellos quienes
-  autentican contra tu endpoint. Usa una clave dedicada y revocable, no la principal.
-
-Para comparar modelos, cambiar `THINK_MODEL` y repetir la misma pregunta grabada con el
-simulador da una comparación bastante honesta: el log del servidor lleva marca de tiempo en
-cada turno, así que se ve tanto la calidad de la respuesta como lo que tarda en llegar.
+Con `THINK_PROVIDER=deepgram` se vuelve al LLM que Deepgram incluye, sin clave propia.
 
 ## Configuración
 
-Todo se ajusta por variables de entorno (ver `.env.example`), sin tocar código:
-
 | Variable            | Por defecto             | Qué controla                                        |
 | ------------------- | ----------------------- | --------------------------------------------------- |
-| `AGENT_LANGUAGES`   | `en,es`                 | Idiomas que entiende y habla, separados por coma     |
 | `AGENT_GREETING`    | *(saludo bilingüe)*     | Lo primero que dice al descolgar                     |
-| `AGENT_PROMPT`      | *(asistente de soporte)*| Instrucciones de sistema (la directiva de idioma se añade sola) |
-| `LISTEN_MODEL`      | *(automático)*          | Vacío elige `flux-general-en` o `flux-general-multi` según los idiomas. `nova-3` como escotilla de salida |
-| `THINK_PROVIDER`    | `open_ai`               | `open_ai`/`anthropic`/`google` usan el LLM de Deepgram; `digitalocean` usa el tuyo |
-| `THINK_MODEL`       | `gpt-4o-mini`           | Modelo del LLM                                       |
+| `AGENT_PROMPT`      | *(asistente de soporte)*| Instrucciones de sistema (la de idioma se añade sola)|
+| `THINK_PROVIDER`    | `digitalocean`          | `deepgram` para usar el LLM incluido en su lugar     |
+| `THINK_MODEL`       | `openai-gpt-4o-mini`    | Modelo del LLM                                       |
 | `THINK_TEMPERATURE` | `0.7`                   | Temperatura del LLM                                  |
-| `DIGITALOCEAN_MODEL_ACCESS_KEY` | —           | Clave de DigitalOcean Serverless Inference           |
-| `THINK_ENDPOINT_URL` / `THINK_API_KEY` | —    | Cualquier otro endpoint compatible con OpenAI        |
-| `SPEAK_MODEL`       | `aura-2-diana-es`       | Voz de síntesis                                      |
-
-Para un agente monolingüe en inglés, por ejemplo:
-
-```env
-AGENT_LANGUAGES=en
-AGENT_GREETING=Hello! How can I help you today?
-SPEAK_MODEL=aura-2-thalia-en
-```
-
-Si necesitas ir más allá (function calling, contexto previo, endpoints LLM propios), el mensaje
-de configuración se construye en [`src/agent-settings.js`](src/agent-settings.js); el esquema
-completo está en la [documentación de Deepgram](https://developers.deepgram.com/docs/configure-voice-agent).
+| `DIGITALOCEAN_MODEL_ACCESS_KEY` | *(requerida)*| Clave de DigitalOcean Serverless Inference          |
+| `SPEAK_MODEL`       | `aura-2-diana-es`       | Voz de síntesis (una de las cinco bilingües)         |
 
 ## Estructura
 
 ```
 src/
-├── server.js                  arranque, validación y apagado ordenado
+├── server.js                  arranque, avisos de configuración y apagado ordenado
 ├── app.js                     instancia de Fastify y registro de plugins/rutas
 ├── config.js                  variables de entorno
-├── voices.js                  catálogo de voces y validación voz/idiomas
 ├── agent-settings.js          mensaje Settings de Deepgram
 ├── deepgram-agent.js          cliente del Voice Agent (cola, keep-alive, eventos)
 └── routes/
@@ -240,7 +187,7 @@ src/
     └── twilio-stream.js       puente de audio bidireccional
 scripts/
 ├── simulate-twilio.js         cliente de pruebas que imita a Twilio
-└── list-models.js             lista y prueba los modelos del endpoint propio
+└── list-models.js             lista y prueba los modelos de DigitalOcean
 ```
 
 ## Notas

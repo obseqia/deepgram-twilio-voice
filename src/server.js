@@ -1,11 +1,16 @@
 import { buildApp } from './app.js';
-import { config, assertConfig, checkVoice } from './config.js';
+import { config, assertConfig, BILINGUAL_VOICES } from './config.js';
 
 assertConfig();
 
 const app = await buildApp();
 
-checkVoice(app.log);
+if (!BILINGUAL_VOICES.includes(config.agent.speakModel)) {
+  app.log.warn(
+    `La voz ${config.agent.speakModel} no alterna español e inglés: leerá uno de los dos ` +
+      `con la fonética equivocada. Voces que sí lo hacen: ${BILINGUAL_VOICES.join(', ')}`,
+  );
+}
 
 app.log.info(
   {

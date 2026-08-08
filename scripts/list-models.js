@@ -8,29 +8,25 @@
  * Sirve para elegir THINK_MODEL antes de gastar una llamada entera, y para
  * distinguir un problema de credenciales de uno de configuración del agente.
  */
-import { config, DIGITALOCEAN_INFERENCE_URL } from '../src/config.js';
+import { config, DIGITALOCEAN_INFERENCE_URL, DIGITALOCEAN_MODELS } from '../src/config.js';
 
-const { thinkEndpointUrl, thinkApiKey, thinkModel, thinkIsDigitalOcean } = config.agent;
+const { thinkEndpointUrl, thinkApiKey, thinkModel } = config.agent;
 
 if (!thinkEndpointUrl) {
   console.error(
-    'No hay endpoint propio configurado: THINK_PROVIDER usa el LLM que incluye Deepgram.\n' +
-      'Pon THINK_PROVIDER=digitalocean (con DIGITALOCEAN_MODEL_ACCESS_KEY) o THINK_ENDPOINT_URL.',
+    'Ahora mismo se usa el LLM que incluye Deepgram.\n' +
+      'Para usar los tuyos: THINK_PROVIDER=digitalocean y DIGITALOCEAN_MODEL_ACCESS_KEY.',
   );
   process.exit(1);
 }
-
-// El listado cuelga de la raíz de la API, no del endpoint de chat.
-const baseUrl = thinkIsDigitalOcean
-  ? DIGITALOCEAN_INFERENCE_URL
-  : thinkEndpointUrl.replace(/\/chat\/completions\/?$/, '');
 
 const auth = { authorization: `Bearer ${thinkApiKey}` };
 
 console.log(`Endpoint : ${thinkEndpointUrl}`);
 console.log(`Modelo   : ${thinkModel}\n`);
 
-const response = await fetch(`${baseUrl}/models`, { headers: auth });
+// El listado cuelga de la raíz de la API, no del endpoint de chat.
+const response = await fetch(`${DIGITALOCEAN_INFERENCE_URL}/models`, { headers: auth });
 
 if (!response.ok) {
   console.error(`No se pudo listar modelos: HTTP ${response.status} ${response.statusText}`);
@@ -43,11 +39,15 @@ const ids = data.map((model) => model.id).sort();
 
 console.log(`Modelos disponibles (${ids.length}):`);
 for (const id of ids) {
-  console.log(`  ${id === thinkModel ? '▸' : ' '} ${id}`);
+  const mark = id === thinkModel ? '▸' : DIGITALOCEAN_MODELS.includes(id) ? '·' : ' ';
+  console.log(`  ${mark} ${id}`);
 }
 
-if (!ids.includes(thinkModel)) {
-  console.log(`\nAviso: THINK_MODEL="${thinkModel}" no aparece en la lista.`);
+console.log('\nModelos a comparar (▸ = el activo, · = disponible, ✗ = no está en tu cuenta):');
+for (const id of DIGITALOCEAN_MODELS) {
+  const mark = !ids.includes(id) ? '✗' : id === thinkModel ? '▸' : '·';
+  const baseline = id === DIGITALOCEAN_MODELS[0] ? '  (baseline)' : '';
+  console.log(`  ${mark} ${id}${baseline}`);
 }
 
 if (!process.argv.includes('--test')) process.exit(0);

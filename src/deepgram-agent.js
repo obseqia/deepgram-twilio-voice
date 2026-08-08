@@ -24,11 +24,6 @@ export class DeepgramAgent extends EventEmitter {
   #pending = [];
   #keepAlive = null;
 
-  constructor({ settingsOverrides = {} } = {}) {
-    super();
-    this.settingsOverrides = settingsOverrides;
-  }
-
   connect() {
     this.#ws = new WebSocket(config.deepgram.agentUrl, {
       headers: { Authorization: `Token ${config.deepgram.apiKey}` },
@@ -87,7 +82,7 @@ export class DeepgramAgent extends EventEmitter {
   }
 
   #sendSettings() {
-    this.#sendJson(buildSettings(this.settingsOverrides));
+    this.#sendJson(buildSettings());
     this.#ready = true;
     this.emit('ready');
     this.#flush();
