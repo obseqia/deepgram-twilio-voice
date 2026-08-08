@@ -83,19 +83,37 @@ for (const { id, state } of access) {
 }
 
 if (access.some(({ state }) => /403|subscription tier/.test(state))) {
+  // Tier 1 y 2 de Inference no dan acceso a ningún modelo de OpenAI ni de
+  // Anthropic salvo dos excepciones: gpt-oss-120b y gpt-oss-20b. Si esas dos
+  // pasan y el resto no, el problema es el tier y no el scope de la clave.
+  const probe = async (id) => {
+    const res = await fetch(thinkEndpointUrl, {
+      method: 'POST',
+      headers: { ...auth, 'content-type': 'application/json' },
+      body: JSON.stringify({ model: id, messages: [{ role: 'user', content: 'hi' }], max_tokens: 1 }),
+      signal: AbortSignal.timeout(30000),
+    }).catch(() => null);
+    return res?.ok ?? false;
+  };
+  const ossWorks = await probe('openai-gpt-oss-120b');
+
   console.log(
-    '\nUn 403 "subscription tier" en modelos comerciales (OpenAI, Anthropic) tiene\n' +
-      'dos causas posibles, y el mensaje de DigitalOcean es el mismo para ambas:\n' +
-      '  1. La cuenta está por debajo de tier 3. Se sube con un prepago en el\n' +
-      '     Control Panel.\n' +
-      '  2. La model access key se creó con un scope de modelos que no los\n' +
-      '     incluye. El scope NO se puede editar: hay que crear otra clave con\n' +
-      '     "All models".\n' +
-      'Para distinguirlas, pon un personal access token en\n' +
-      'DIGITALOCEAN_MODEL_ACCESS_KEY y repite: la API acepta los dos, así que si\n' +
-      'con el token sí funcionan, el problema era el scope de la clave.\n' +
-      'Los modelos de pesos abiertos funcionan en cualquiera de los dos casos.',
+    `\nDiagnóstico del 403 (openai-gpt-oss-120b ${ossWorks ? 'sí' : 'no'} funciona con esta clave):`,
   );
+  if (ossWorks) {
+    console.log(
+      '  Es el tier de Inference: sus tiers 1 y 2 excluyen todo OpenAI y Anthropic\n' +
+        '  salvo gpt-oss-120b y gpt-oss-20b, que es exactamente lo que pasa aquí.\n' +
+        '  Ojo: ese tier es propio de Serverless Inference y se sube con su propio\n' +
+        '  prepago, no es el resource tier que muestra el panel de la cuenta.\n' +
+        '  Control Panel → Gradient AI → Serverless Inference → prepayment.',
+    );
+  } else {
+    console.log(
+      '  Ni gpt-oss pasa, así que apunta al scope de la model access key: se fija\n' +
+        '  al crearla y no se puede editar. Crea otra con "All models".',
+    );
+  }
 }
 
 if (!process.argv.includes('--test')) process.exit(0);

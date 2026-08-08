@@ -223,14 +223,15 @@ HTTP 403: this model is not available for your subscription tier
 
 El mensaje es el mismo para dos causas distintas, lo cual despista bastante:
 
-1. **La cuenta está por debajo de tier 3.** Se sube con un prepago en el Control Panel.
-2. **La clave se creó con un scope de modelos que no los incluye.** Las *model access keys* se
-   scopean al crearlas ("All models" o "Select models") y el scope **no se puede editar
-   después**: hay que crear otra clave.
+1. **El tier de Serverless Inference.** Sus tiers 1 y 2 excluyen *todo* OpenAI y Anthropic salvo
+   `gpt-oss-120b` y `gpt-oss-20b`. Cuidado con esto: es un tier **propio del producto**, se sube
+   con su propio prepago, y no tiene que ver con el resource tier que muestra el panel de la
+   cuenta — se puede estar en tier 4 de cuenta y seguir en tier 1 de Inference.
+2. **El scope de la clave.** Las *model access keys* se scopean al crearlas ("All models" o
+   "Select models") y el scope **no se puede editar después**: hay que crear otra.
 
-Para distinguirlas, pon un *personal access token* en `DIGITALOCEAN_MODEL_ACCESS_KEY` y repite
-la prueba — la API acepta los dos tipos de credencial. Si con el token funcionan, era el scope
-de la clave.
+`pnpm models` las distingue solo: prueba `gpt-oss-120b`, que es la excepción de los tiers bajos.
+Si esa pasa y el resto no, es el tier; si no pasa ninguna, es el scope de la clave.
 
 Los modelos de pesos abiertos (Llama, Kimi, Mistral, DeepSeek, gpt-oss) funcionan en ambos casos.
 
