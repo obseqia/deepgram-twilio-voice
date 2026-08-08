@@ -61,7 +61,12 @@ export default async function twilioStreamRoutes(fastify) {
 
     agent.on('event', (message) => {
       if (message.type === 'ConversationText') {
-        log.info({ role: message.role, content: message.content }, 'conversación');
+        // Con flux-general-multi, cada turno viene etiquetado con el idioma que
+        // se detectó: es la forma de ver el code-switching funcionando.
+        log.info(
+          { role: message.role, languages: message.languages, content: message.content },
+          'conversación',
+        );
       } else {
         log.debug({ message }, 'evento de Deepgram');
       }

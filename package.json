@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "simulate": "node scripts/simulate-twilio.js"
+    "simulate": "node scripts/simulate-twilio.js",
+    "models": "node scripts/list-models.js"
   },
   "dependencies": {
     "@fastify/formbody": "^8.0.2",

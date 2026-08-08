@@ -1,9 +1,19 @@
 import { buildApp } from './app.js';
-import { config, assertConfig } from './config.js';
+import { config, assertConfig, checkVoice } from './config.js';
 
 assertConfig();
 
 const app = await buildApp();
+
+checkVoice(app.log);
+
+app.log.info(
+  {
+    model: config.agent.thinkModel,
+    endpoint: config.agent.thinkEndpointUrl ?? 'el LLM incluido en Deepgram',
+  },
+  'LLM del agente',
+);
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, async () => {
