@@ -20,6 +20,11 @@ if (!thinkEndpointUrl) {
   process.exit(1);
 }
 
+if (!thinkApiKey) {
+  console.error('Falta DIGITALOCEAN_MODEL_ACCESS_KEY en el .env.');
+  process.exit(1);
+}
+
 const auth = { authorization: `Bearer ${thinkApiKey}` };
 
 console.log(`Endpoint : ${thinkEndpointUrl}`);

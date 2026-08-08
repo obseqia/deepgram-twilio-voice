@@ -57,9 +57,9 @@ responde en inglés:
 ## Puesta en marcha
 
 ```bash
-npm install
+pnpm install
 cp .env.example .env   # y rellena DEEPGRAM_API_KEY
-npm run dev
+pnpm dev
 ```
 
 El servidor queda en `http://localhost:5000`.
@@ -87,7 +87,7 @@ Hay un simulador que se hace pasar por Twilio: manda los eventos `connected` / `
 audio a ritmo real y guarda la respuesta del agente en un WAV que puedes escuchar.
 
 ```bash
-npm run simulate
+pnpm simulate
 ```
 
 Sin argumentos manda silencio, así que solo comprueba que llega el saludo. Para probar una
@@ -147,8 +147,8 @@ Para ver cuáles tienes disponibles de verdad y comprobar que la clave funciona 
 una llamada entera:
 
 ```bash
-npm run models            # lista los de tu cuenta y marca los cuatro de arriba
-npm run models -- --test  # además pregunta algo al de THINK_MODEL y lo cronometra
+pnpm models            # lista los de tu cuenta y marca los cuatro de arriba
+pnpm models --test     # además pregunta algo al de THINK_MODEL y lo cronometra
 ```
 
 Para comparar, cambia `THINK_MODEL` y repite la misma pregunta grabada con el simulador: el log
