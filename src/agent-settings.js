@@ -85,9 +85,14 @@ export function buildSettings() {
       },
       think,
       speak: {
+        // provider: {
+        //   type: 'deepgram',
+        //   model: agent.speakModel,
+        // },
         provider: {
-          type: 'deepgram',
-          model: agent.speakModel,
+          type: 'eleven_labs',
+          model_id: 'eleven_multilingual_v2',
+          voice_id: agent.speakModel,
         },
       },
       greeting: agent.greeting,

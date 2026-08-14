@@ -80,6 +80,9 @@ const DAY_ALIASES = {
 export const TOOLS = [
   {
     name: 'resolve_location',
+    // Con red de por medio: vale la pena avisar antes de llamarla (ver
+    // fillerEligible más abajo y cómo se usa en deepgram-agent.js).
+    fillerEligible: true,
     description:
       'Convierte el nombre de una ciudad o lugar en coordenadas geográficas. ' +
       'Úsala antes de get_weather siempre que el usuario mencione un lugar por su nombre.',
@@ -117,6 +120,7 @@ export const TOOLS = [
 
   {
     name: 'get_weather',
+    fillerEligible: true,
     description:
       'Consulta el clima para unas coordenadas. Requiere latitud y longitud, ' +
       'que se obtienen antes con resolve_location.',
@@ -172,6 +176,8 @@ export const TOOLS = [
   },
 
   {
+    // Frankfurter responde en ~90 ms en nuestras pruebas: parecido a la tool
+    // local, así que no lleva relleno (fillerEligible queda sin declarar).
     name: 'convert_currency',
     description: 'Convierte una cantidad de una divisa a otra con el tipo de cambio del día.',
     parameters: {
@@ -229,6 +235,11 @@ export const TOOLS = [
 ];
 
 const BY_NAME = new Map(TOOLS.map((tool) => [tool.name, tool]));
+
+/** Si alguna de estas llamadas puede tardar lo bastante como para justificar relleno. */
+export function anyNeedsFiller(names) {
+  return names.some((name) => BY_NAME.get(name)?.fillerEligible);
+}
 
 /** Declaración de funciones para el mensaje `Settings` de Deepgram. */
 export function deepgramFunctions() {

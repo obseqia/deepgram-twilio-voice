@@ -35,6 +35,7 @@ export const DIGITALOCEAN_MODELS = [
   'openai-gpt-5-nano', // el más interesante si manda la latencia
   'openai-gpt-5.6-luna', // equilibrio entre capacidad y velocidad
   'openai-gpt-5-mini', // cuánta calidad se gana sacrificando latencia
+  'openai-gpt-oss-20b'
 ];
 
 const useDigitalOcean =

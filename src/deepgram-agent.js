@@ -3,9 +3,25 @@ import WebSocket from 'ws';
 
 import { config } from './config.js';
 import { buildSettings } from './agent-settings.js';
-import { runTool } from './tools.js';
+import { runTool, anyNeedsFiller } from './tools.js';
 
 const KEEPALIVE_INTERVAL_MS = 8000;
+
+/**
+ * Frases de relleno para cuando una tool va a tardar (resolve_location,
+ * get_weather): sin esto el usuario oye un silencio muerto mientras se
+ * resuelve la llamada externa. Varias por idioma para no repetir siempre la
+ * misma en una conversación con varias herramientas.
+ */
+const FILLERS = {
+  es: ['Un momento, lo checo.', 'Dame un segundo.', 'Ok, déjame ver eso.'],
+  en: ['One moment, let me check.', 'Give me a second.', "Okay, let me look that up."],
+};
+
+const randomFiller = (lang) => {
+  const options = FILLERS[lang] ?? FILLERS.en;
+  return options[Math.floor(Math.random() * options.length)];
+};
 
 /**
  * Conexión con la Voice Agent API de Deepgram.
@@ -24,6 +40,11 @@ export class DeepgramAgent extends EventEmitter {
   #closed = false;
   #pending = [];
   #keepAlive = null;
+  #lastLanguage = 'en';
+  // Un relleno por turno de usuario, no por ronda: si el modelo encadena
+  // resolve_location → get_weather en dos FunctionCallRequest separados,
+  // solo el primero dispara el "un momento".
+  #fillerSentThisTurn = false;
 
   connect() {
     this.#ws = new WebSocket(config.deepgram.agentUrl, {
@@ -75,6 +96,13 @@ export class DeepgramAgent extends EventEmitter {
       case 'FunctionCallRequest':
         this.#handleFunctionCalls(message);
         break;
+      case 'ConversationText':
+        if (message.role === 'user') {
+          this.#fillerSentThisTurn = false;
+          const [lang] = message.languages ?? [];
+          if (lang) this.#lastLanguage = lang;
+        }
+        break;
       case 'Error':
         this.emit('error', new Error(message.description ?? JSON.stringify(message)));
         break;
@@ -94,6 +122,18 @@ export class DeepgramAgent extends EventEmitter {
    */
   async #handleFunctionCalls(message) {
     const calls = (message.functions ?? []).filter((call) => call.client_side !== false);
+    if (calls.length === 0) return;
+
+    // El relleno va antes de ejecutar las tools, no después: es lo que
+    // rellena la espera, no lo que la anuncia una vez ya pasó.
+    if (!this.#fillerSentThisTurn && anyNeedsFiller(calls.map((call) => call.name))) {
+      this.#fillerSentThisTurn = true;
+      this.#sendJson({
+        type: 'InjectAgentMessage',
+        message: randomFiller(this.#lastLanguage),
+        behavior: 'queue',
+      });
+    }
 
     await Promise.all(
       calls.map(async (call) => {
