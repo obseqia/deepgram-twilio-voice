@@ -153,21 +153,21 @@ no dice "mexicanos" ni "USD", así que las divisas tiene que sacarlas del turno 
 
 ## Repaso
 
-| Feature                                   | Turno |
-| ----------------------------------------- | ----- |
-| Saludo bilingüe con voz code-switching    | 0     |
-| Encadenado `resolve_location → get_weather` | 1   |
-| Barge-in                                  | 2     |
-| Fecha relativa ("mañana")                 | 2, 4  |
-| Reutilizar coordenadas ya resueltas       | 2     |
-| Herramienta local `get_business_hours`    | 3     |
-| Cambio es → en a mitad de llamada         | 4     |
-| Dos cadenas combinadas en un turno        | 4     |
-| Llamadas en paralelo                      | 4     |
-| `convert_currency`                        | 4, 6  |
-| Ninguna herramienta cuando no toca        | 5     |
-| Cambio en → es y contexto arrastrado      | 6     |
-| Latencia por turno                        | todos |
+| Feature                                     | Turno |
+| ------------------------------------------- | ----- |
+| Saludo bilingüe con voz code-switching      | 0     |
+| Encadenado `resolve_location → get_weather` | 1     |
+| Barge-in                                    | 2     |
+| Fecha relativa ("mañana")                   | 2, 4  |
+| Reutilizar coordenadas ya resueltas         | 2     |
+| Herramienta local `get_business_hours`      | 3     |
+| Cambio es → en a mitad de llamada           | 4     |
+| Dos cadenas combinadas en un turno          | 4     |
+| Llamadas en paralelo                        | 4     |
+| `convert_currency`                          | 4, 6  |
+| Ninguna herramienta cuando no toca          | 5     |
+| Cambio en → es y contexto arrastrado        | 6     |
+| Latencia por turno                          | todos |
 
 ## La misma prueba, sin llamar
 

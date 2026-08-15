@@ -42,17 +42,24 @@ responde en inglés:
    nombre: `aura-2-thalia-en`). Una voz inglesa dirá una frase en español, pero leyéndola como
    si fuera inglés. **Solo cinco voces alternan los dos idiomas dentro de una misma respuesta**:
    `aura-2-aquila-es`, `aura-2-carina-es`, `aura-2-diana-es`, `aura-2-javier-es` y
-   `aura-2-selena-es`. El servidor avisa por log si `SPEAK_MODEL` no es una de ellas.
+   `aura-2-selena-es`. El servidor avisa por log si `SPEAK_MODEL` no es una de ellas — ese aviso
+   solo tiene sentido con el proveedor Aura-2, ver nota siguiente.
+
+El proveedor de voz activo en el código ahora mismo es **ElevenLabs** (`eleven_multilingual_v2`),
+con `SPEAK_MODEL` como `voice_id`. El bloque Aura-2/Deepgram sigue en
+[agent-settings.js](src/agent-settings.js), comentado, para volver a él si hace falta. Las
+grabaciones de las cinco voces bilingües de Aura-2 para compararlas sueltas quedan en
+`muestras-voces/` (carpeta local, no versionada).
 
 (El campo `agent.language` de la API está deprecado y este proyecto no lo envía.)
 
 ## Endpoints
 
-| Ruta      | Método    | Para qué sirve                                                     |
-| --------- | --------- | ------------------------------------------------------------------ |
-| `/twiml`  | POST, GET | Devuelve el TwiML que abre el Media Stream. Es el webhook de voz.   |
-| `/twilio` | WebSocket | El puente de audio propiamente dicho.                               |
-| `/health` | GET       | Comprobación de vida.                                               |
+| Ruta      | Método    | Para qué sirve                                                    |
+| --------- | --------- | ----------------------------------------------------------------- |
+| `/twiml`  | POST, GET | Devuelve el TwiML que abre el Media Stream. Es el webhook de voz. |
+| `/twilio` | WebSocket | El puente de audio propiamente dicho.                             |
+| `/health` | GET       | Comprobación de vida.                                             |
 
 ## Puesta en marcha
 
@@ -99,13 +106,13 @@ node scripts/simulate-twilio.js --audio pregunta.raw --out respuesta.wav
 afplay respuesta.wav
 ```
 
-| Opción      | Por defecto            | Qué hace                                                     |
-| ----------- | ---------------------- | ------------------------------------------------------------ |
-| `--url`     | `ws://localhost:5000/twilio` | A dónde conectarse                                     |
-| `--audio`   | *(silencio)*           | Fichero mulaw 8 kHz que se envía como voz del llamante       |
-| `--delay`   | `6` con audio, `0` sin | Segundos de silencio antes de hablar, para dejar pasar el saludo. Con `0` la pregunta pisa al agente: así se prueba el barge-in |
-| `--seconds` | `25` con audio, `10` sin | Duración total de la llamada simulada                      |
-| `--out`     | `respuesta-agente.wav` | Dónde guardar el audio del agente                            |
+| Opción      | Por defecto                  | Qué hace                                                                                                                        |
+| ----------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `--url`     | `ws://localhost:5000/twilio` | A dónde conectarse                                                                                                              |
+| `--audio`   | *(silencio)*                 | Fichero mulaw 8 kHz que se envía como voz del llamante                                                                          |
+| `--delay`   | `6` con audio, `0` sin       | Segundos de silencio antes de hablar, para dejar pasar el saludo. Con `0` la pregunta pisa al agente: así se prueba el barge-in |
+| `--seconds` | `25` con audio, `10` sin     | Duración total de la llamada simulada                                                                                           |
+| `--out`     | `respuesta-agente.wav`       | Dónde guardar el audio del agente                                                                                               |
 
 Si no tienes nada grabado, el propio TTS de Deepgram sirve para generar las preguntas:
 
@@ -125,6 +132,15 @@ Mientras corre, el log del servidor muestra cada turno con el idioma detectado:
      assistant : Our customer service hours are Monday to Friday, from 9 AM to 5 PM.
 ```
 
+### Guion de prueba en llamada real
+
+[GUION-PRUEBA.md](GUION-PRUEBA.md) tiene seis turnos pensados para recorrer todo lo que lleva el
+PoC en una sola llamada real: encadenado de herramientas, barge-in, fecha relativa, cambio de
+idioma a mitad de conversación, dos cadenas combinadas en un turno, y el caso sin herramientas
+que de verdad separa a los modelos. Cada turno explica qué mirar en el log del servidor mientras
+se prueba, y al final incluye cómo generar los mismos turnos con el TTS de Deepgram para repetir
+la prueba igual entre modelos, sin depender de cómo hables.
+
 ## Tool calling
 
 El agente lleva cuatro herramientas que forman un "travel concierge" mínimo. No son el
@@ -132,17 +148,31 @@ producto: están elegidas porque generan los mismos patrones que después aparec
 reservas — elegir la herramienta correcta, extraer bien los argumentos, encadenar una llamada
 con el resultado de otra, y combinar dos cadenas independientes en una sola respuesta.
 
-| Herramienta          | Fuente                | Por qué está                                        |
-| -------------------- | --------------------- | --------------------------------------------------- |
-| `resolve_location`   | Open-Meteo Geocoding  | Nombre de ciudad → coordenadas. Sin clave            |
-| `get_weather`        | Open-Meteo Forecast   | Obliga a encadenar: necesita lat/lon. Sin clave      |
-| `convert_currency`   | Frankfurter           | Simple y determinista. Sin clave                     |
-| `get_business_hours` | local, 50–150 ms      | Referencia de latencia sin red de por medio          |
+| Herramienta          | Fuente               | Por qué está                                    |
+| -------------------- | -------------------- | ----------------------------------------------- |
+| `resolve_location`   | Open-Meteo Geocoding | Nombre de ciudad → coordenadas. Sin clave       |
+| `get_weather`        | Open-Meteo Forecast  | Obliga a encadenar: necesita lat/lon. Sin clave |
+| `convert_currency`   | Frankfurter          | Simple y determinista. Sin clave                |
+| `get_business_hours` | local, 50–150 ms     | Referencia de latencia sin red de por medio     |
 
 Se declaran sin `endpoint`, así que Deepgram las trata como *client-side*: manda un
 `FunctionCallRequest` y las ejecuta este servidor, que responde con `FunctionCallResponse`. Es
 lo que permite cronometrarlas. Cuando el modelo pide varias a la vez se ejecutan en paralelo,
 porque encadenarlas alargaría el silencio que oye quien llama.
+
+### Relleno hablado mientras corre una tool lenta
+
+`resolve_location` y `get_weather` dependen de una API externa y tardan 200–700 ms; sin nada de
+por medio, eso se oye como silencio muerto. Cada tool se declara `fillerEligible: true` o no en
+[tools.js](src/tools.js) — lo son esas dos, pero no `convert_currency` (Frankfurter responde en
+~90 ms, parecido a la tool local) ni `get_business_hours`. Cuando el modelo pide una tool
+`fillerEligible`, el servidor manda un `InjectAgentMessage` (`behavior: "queue"`) con una frase
+corta antes de ejecutarla, en el idioma del último turno del usuario. Es un relleno por turno de
+usuario, no por `FunctionCallRequest`: si el modelo encadena `resolve_location → get_weather` en
+dos rondas, solo la primera lo dispara.
+
+En una llamada real con esas dos herramientas encadenadas, el tiempo hasta el primer audio bajó
+de ~3.5 s a ~1.8 s, porque ese primer audio ya es el relleno.
 
 Al prompt se le añade la fecha de hoy: sin ella el modelo no puede resolver "mañana" a una
 fecha concreta para `get_weather`, y acaba inventándose una.
@@ -207,13 +237,14 @@ DIGITALOCEAN_MODEL_ACCESS_KEY=tu_clave
 
 Los modelos que se están comparando, con `openai-gpt-4o-mini` como **baseline**:
 
-| Modelo                       | Por qué está en la lista                          |
-| ---------------------------- | ------------------------------------------------- |
-| `openai-gpt-4o-mini`         | baseline conocido y estable                       |
-| `anthropic-claude-haiku-4.5` | mejor apuesta general: calidad + velocidad + tools |
-| `openai-gpt-5-nano`          | el más interesante si manda la latencia            |
-| `openai-gpt-5.6-luna`        | equilibrio entre capacidad y velocidad             |
-| `openai-gpt-5-mini`          | cuánta calidad se gana sacrificando latencia       |
+| Modelo                       | Por qué está en la lista                                                                                                                   |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `openai-gpt-4o-mini`         | baseline conocido y estable                                                                                                                |
+| `anthropic-claude-haiku-4.5` | mejor apuesta general: calidad + velocidad + tools                                                                                         |
+| `openai-gpt-5-nano`          | el más interesante si manda la latencia                                                                                                    |
+| `openai-gpt-5.6-luna`        | equilibrio entre capacidad y velocidad                                                                                                     |
+| `openai-gpt-5-mini`          | cuánta calidad se gana sacrificando latencia                                                                                               |
+| `openai-gpt-oss-20b`         | pesos abiertos: una de las dos excepciones que funcionan hasta en los tiers 1 y 2 de Inference, de repuesto cuando los comerciales dan 403 |
 
 Los modelos comerciales (OpenAI y Anthropic) pueden devolver:
 
@@ -256,19 +287,20 @@ Con `THINK_PROVIDER=deepgram` se vuelve al LLM que Deepgram incluye, sin clave p
 
 ## Configuración
 
-| Variable            | Por defecto             | Qué controla                                        |
-| ------------------- | ----------------------- | --------------------------------------------------- |
-| `AGENT_GREETING`    | *(saludo bilingüe)*     | Lo primero que dice al descolgar                     |
-| `AGENT_PROMPT`      | *(asistente de soporte)*| Instrucciones de sistema (la de idioma se añade sola)|
-| `THINK_PROVIDER`    | `digitalocean`          | `deepgram` para usar el LLM incluido en su lugar     |
-| `THINK_MODEL`       | `openai-gpt-4o-mini`    | Modelo del LLM                                       |
-| `THINK_TEMPERATURE` | `0.7`                   | Temperatura del LLM                                  |
-| `DIGITALOCEAN_MODEL_ACCESS_KEY` | *(requerida)*| Clave de DigitalOcean Serverless Inference          |
-| `SPEAK_MODEL`       | `aura-2-diana-es`       | Voz de síntesis (una de las cinco bilingües)         |
+| Variable                        | Por defecto              | Qué controla                                                                                              |
+| ------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------- |
+| `AGENT_GREETING`                | *(saludo bilingüe)*      | Lo primero que dice al descolgar                                                                          |
+| `AGENT_PROMPT`                  | *(asistente de soporte)* | Instrucciones de sistema (la de idioma se añade sola)                                                     |
+| `THINK_PROVIDER`                | `digitalocean`           | `deepgram` para usar el LLM incluido en su lugar                                                          |
+| `THINK_MODEL`                   | `openai-gpt-4o-mini`     | Modelo del LLM                                                                                            |
+| `THINK_TEMPERATURE`             | `0.7`                    | Temperatura del LLM                                                                                       |
+| `DIGITALOCEAN_MODEL_ACCESS_KEY` | *(requerida)*            | Clave de DigitalOcean Serverless Inference                                                                |
+| `SPEAK_MODEL`                   | `aura-2-diana-es`        | Voz de síntesis: `voice_id` de ElevenLabs (proveedor activo) o nombre Aura-2 si se vuelve a ese proveedor |
 
 ## Estructura
 
 ```
+GUION-PRUEBA.md               guion manual de seis turnos para probar el PoC en llamada real
 src/
 ├── server.js                  arranque, avisos de configuración y apagado ordenado
 ├── app.js                     instancia de Fastify y registro de plugins/rutas
@@ -292,3 +324,5 @@ scripts/
   del agente llega antes que el evento `start` de Twilio, se guarda hasta conocer el `streamSid`.
 - Se manda un `KeepAlive` cada 8 s para que Deepgram no cierre la sesión en silencios largos.
 - Cerrar cualquiera de los dos extremos cierra el otro.
+- El relleno hablado (`InjectAgentMessage`) es audio del agente como cualquier otro: si el
+  usuario interrumpe mientras suena, el barge-in lo corta igual que cortaría la respuesta final.

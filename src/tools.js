@@ -56,12 +56,12 @@ async function getJson(url, params) {
 
 /** Horario de la empresa ficticia, para la herramienta local. */
 const BUSINESS_HOURS = {
-  monday: '9:00–18:00',
-  tuesday: '9:00–18:00',
-  wednesday: '9:00–18:00',
-  thursday: '9:00–18:00',
-  friday: '9:00–17:00',
-  saturday: '10:00–14:00',
+  monday: '9:00-18:00',
+  tuesday: '9:00-18:00',
+  wednesday: '9:00-18:00',
+  thursday: '9:00-18:00',
+  friday: '9:00-17:00',
+  saturday: '10:00-14:00',
   sunday: 'cerrado',
 };
 
