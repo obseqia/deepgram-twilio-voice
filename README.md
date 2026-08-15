@@ -26,6 +26,9 @@ Cuando Deepgram avisa de un `UserStartedSpeaking`, el servidor manda un `clear` 
 descartar el audio del agente que quede en el búfer de reproducción: eso es el **barge-in**,
 lo que permite interrumpir al agente hablándole encima.
 
+Diagramas más detallados (secuencia completa de una llamada, arquitectura de las herramientas
+y estados de una sesión) en [COMO-FUNCIONA.md](COMO-FUNCIONA.md).
+
 ## El bilingüismo
 
 Que el agente cambie de idioma bien depende de tres piezas, y las tres tienen que estar de
@@ -301,6 +304,7 @@ Con `THINK_PROVIDER=deepgram` se vuelve al LLM que Deepgram incluye, sin clave p
 
 ```
 GUION-PRUEBA.md               guion manual de seis turnos para probar el PoC en llamada real
+COMO-FUNCIONA.md              diagramas: flujo de llamada, arquitectura de tools, estados
 src/
 ├── server.js                  arranque, avisos de configuración y apagado ordenado
 ├── app.js                     instancia de Fastify y registro de plugins/rutas
