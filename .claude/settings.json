@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "apiKeyHelper": "printenv MODEL_ACCESS_KEY",
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://inference.do-ai.run",
+    "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "anthropic-claude-opus-5[1m]",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME": "Claude Opus 5 (Premium)",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_DESCRIPTION": "Use for difficult architecture, debugging, and critical coding tasks",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "openai-gpt-5.6-luna[1m]",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME": "GPT-5.6 Luna (Value Default)",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_DESCRIPTION": "Default model for day-to-day coding with strong cost/performance",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-flash-0731[1m]",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME": "DeepSeek V4 Flash 0731 (Fast/Low Cost)",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_DESCRIPTION": "Use for fast background work, simple coding tasks, tests, and exploration",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "deepseek-v4-flash-0731"
+  },
+  "model": "sonnet",
+  "forceLoginMethod": "console"
+}
